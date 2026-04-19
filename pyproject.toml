@@ -28,7 +28,7 @@ Repository = "https://github.com/beldenschroeder/brkg_stmt_data_scrubber"
 Issues = "https://github.com/beldenschroeder/brkg_stmt_data_scrubber/issues"
 
 [project.scripts]
-brkg_scrubber = "brkg_stmt_data_scrubber.cli:main"
+brkg-scrubber = "brkg_stmt_data_scrubber.cli:main"
 
 [dependency-groups]
 dev = [

@@ -99,23 +99,23 @@ Now Ruff lint + format will run automatically on every `git commit`.
 
 ## Usage
 
-The project installs a console script called **`brkg_scrubber`**.
+The project installs a console script called **`brkg-scrubber`**.
 
 ```bash
 # Use INPUT_PDF and OUTPUT_DIR from .env
-uv run brkg_scrubber
+uv run brkg-scrubber
 
 # Override the input PDF on the command line
-uv run brkg_scrubber path/to/statement.pdf
+uv run brkg-scrubber path/to/statement.pdf
 
 # Override the output directory
-uv run brkg_scrubber path/to/statement.pdf -o ./my_csvs
+uv run brkg-scrubber path/to/statement.pdf -o ./my_csvs
 
 # Verbose logging
-uv run brkg_scrubber -v
+uv run brkg-scrubber -v
 
 # Help
-uv run brkg_scrubber --help
+uv run brkg-scrubber --help
 ```
 
 Alternatively, if you have already activated the virtual environment
@@ -123,12 +123,12 @@ Alternatively, if you have already activated the virtual environment
 
 ```bash
 source .venv/bin/activate
-brkg_scrubber path/to/statement.pdf
+brkg-scrubber path/to/statement.pdf
 ```
 
 After running you'll find:
 
-```
+```text
 output/
 ├── brokerage_income.csv
 └── retirement_brokerage_income.csv
@@ -139,7 +139,7 @@ output/
 
 Each file has the columns:
 
-```
+```text
 Date, Description, Account, Statement Ending, Month Ending, Debit, Credit
 ```
 
@@ -195,7 +195,7 @@ uv run pre-commit run --all-files
 
 ## Project layout
 
-```
+```text
 brkg_stmt_data_scrubber/
 ├── .env.example
 ├── .gitignore
@@ -207,7 +207,7 @@ brkg_stmt_data_scrubber/
 ├── README.md
 ├── src/brkg_stmt_data_scrubber/
 │   ├── __init__.py
-│   ├── cli.py          # `brkg_scrubber` entry point
+│   ├── cli.py          # `brkg-scrubber` entry point
 │   ├── config.py       # .env loading
 │   ├── models.py       # Transaction / AccountSection / CSV columns
 │   ├── parser.py       # PDF parsing & rule application
