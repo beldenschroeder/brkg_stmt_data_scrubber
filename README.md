@@ -20,7 +20,7 @@ The CSVs are formatted for native import into Excel:
 - Locates the BROKERAGE (TFR ON DEATH IND) and RETIREMENT BROKERAGE (JPMS LLC IRA)
   account sections automatically by per-page header markers.
 - Extracts transactions from each account's `INCOME` → `Income from Taxable
-  Investments` table and (optionally) the `TRADE AND INVESTMENT ACTIVITY` table.
+Investments` table and (optionally) the `TRADE AND INVESTMENT ACTIVITY` table.
 - Applies the following mapping rules:
   - `DIVIDEND` → CSV `Account` = `Dividends`, `Description` = ticker (from
     `Symbol: XXX`), credit amount → `Credit`.
@@ -63,14 +63,13 @@ cp .env.example .env
 
 The supported keys are:
 
-| Variable                          | Default                              | Purpose                                                |
-| --------------------------------- | ------------------------------------ | ------------------------------------------------------ |
-| `INPUT_PDF`                       | `./input/statement.pdf`              | Path to the input PDF statement                        |
-| `OUTPUT_DIR`                      | `./output`                           | Directory where CSVs are written                       |
-| `BROKERAGE_CSV_NAME`              | `brokerage_income`                   | Filename (without `.csv`) for the brokerage output     |
-| `RETIREMENT_BROKERAGE_CSV_NAME`   | `retirement_brokerage_income`        | Filename (without `.csv`) for the retirement output    |
-| `INCLUDE_TRADES`                  | `true`                               | Include BUY/SELL trades in the CSV                     |
-| `LOG_LEVEL`                       | `INFO`                               | Logging verbosity                                      |
+| Variable                        | Default                       | Purpose                                             |
+| ------------------------------- | ----------------------------- | --------------------------------------------------- |
+| `INPUT_PDF`                     | `./input/statement.pdf`       | Path to the input PDF statement                     |
+| `OUTPUT_DIR`                    | `./output`                    | Directory where CSVs are written                    |
+| `BROKERAGE_CSV_NAME`            | `brokerage_income`            | Filename (without `.csv`) for the brokerage output  |
+| `RETIREMENT_BROKERAGE_CSV_NAME` | `retirement_brokerage_income` | Filename (without `.csv`) for the retirement output |
+| `LOG_LEVEL`                     | `INFO`                        | Logging verbosity                                   |
 
 ### 3. Install dependencies
 
@@ -112,14 +111,19 @@ uv run brkg_scrubber path/to/statement.pdf
 # Override the output directory
 uv run brkg_scrubber path/to/statement.pdf -o ./my_csvs
 
-# Skip BUY/SELL trades for this run
-uv run brkg_scrubber --no-trades
-
 # Verbose logging
 uv run brkg_scrubber -v
 
 # Help
 uv run brkg_scrubber --help
+```
+
+Alternatively, if you have already activated the virtual environment
+(`source .venv/bin/activate`), you can call the script directly without `uv run`:
+
+```bash
+source .venv/bin/activate
+brkg_scrubber path/to/statement.pdf
 ```
 
 After running you'll find:
@@ -224,9 +228,8 @@ brkg_stmt_data_scrubber/
   layout in the future, the most likely places to tune are the regex constants
   at the top of `src/brkg_stmt_data_scrubber/parser.py`.
 - BUY/SELL transactions live in the PDF's `TRADE AND INVESTMENT ACTIVITY`
-  table, *not* under `INCOME`. They're parsed and emitted alongside dividends
-  in the same CSV. Set `INCLUDE_TRADES=false` (or pass `--no-trades`) if you
-  only want dividend/income rows.
+  table, _not_ under `INCOME`. They're parsed and emitted alongside dividends
+  in the same CSV.
 
 ---
 
