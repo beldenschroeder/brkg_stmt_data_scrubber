@@ -48,17 +48,10 @@ logger = logging.getLogger(__name__)
     default=False,
     help="Enable DEBUG-level logging.",
 )
-@click.option(
-    "--no-trades",
-    is_flag=True,
-    default=False,
-    help="Skip BUY/SELL transactions (overrides INCLUDE_TRADES from .env).",
-)
 def main(
     pdf_path: Path | None,
     output_dir: Path | None,
     verbose: bool,
-    no_trades: bool,
 ) -> None:
     """CLI entry point — registered as the `brkg_scrubber` script."""
     cfg = Config.load()
@@ -79,14 +72,12 @@ def main(
         sys.exit(2)
 
     out_dir = output_dir or cfg.output_dir
-    include_trades = cfg.include_trades and not no_trades
 
     logger.info("Input PDF:        %s", resolved_pdf)
     logger.info("Output directory: %s", out_dir)
-    logger.info("Include trades:   %s", include_trades)
 
     try:
-        sections = parse_statement(resolved_pdf, include_trades=include_trades)
+        sections = parse_statement(resolved_pdf)
     except Exception as exc:
         logger.error("Failed to parse statement: %s", exc)
         sys.exit(1)

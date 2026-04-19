@@ -23,7 +23,6 @@ def cfg(tmp_path: Path) -> Config:
         output_dir=tmp_path,
         brokerage_csv_name="brokerage_income",
         retirement_brokerage_csv_name="retirement_brokerage_income",
-        include_trades=True,
         log_level="INFO",
     )
 
@@ -143,7 +142,6 @@ def test_respects_custom_filenames(tmp_path: Path):
         output_dir=tmp_path,
         brokerage_csv_name="my_brokerage_data",
         retirement_brokerage_csv_name="my_ira_data",
-        include_trades=True,
         log_level="INFO",
     )
     bsec = AccountSection(account_name=BROKERAGE_ACCOUNT, transactions=[])

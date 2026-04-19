@@ -206,8 +206,6 @@ def normalize_statement_ending(raw: str) -> str:
 
 def parse_statement(
     pdf_path: Path,
-    *,
-    include_trades: bool = True,
 ) -> list[AccountSection]:
     """Parse a JPMorgan brokerage statement PDF.
 
@@ -241,9 +239,7 @@ def parse_statement(
         flat_lines, page_for_line = _flatten_pages(run_pages)
 
         income_txns = _parse_income_blocks(flat_lines, page_for_line)
-        trade_txns: list[Transaction] = []
-        if include_trades:
-            trade_txns = _parse_trade_blocks(flat_lines, page_for_line)
+        trade_txns = _parse_trade_blocks(flat_lines, page_for_line)
 
         all_txns = income_txns + trade_txns
         all_txns.sort(key=lambda t: t.date)  # ISO dates sort lexically = chronologically

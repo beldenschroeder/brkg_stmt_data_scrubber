@@ -8,13 +8,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-def _env_bool(name: str, default: bool) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in ("1", "true", "yes", "y", "on")
-
-
 @dataclass(frozen=True)
 class Config:
     """Resolved runtime configuration."""
@@ -23,7 +16,6 @@ class Config:
     output_dir: Path
     brokerage_csv_name: str
     retirement_brokerage_csv_name: str
-    include_trades: bool
     log_level: str
 
     @classmethod
@@ -45,7 +37,6 @@ class Config:
             retirement_brokerage_csv_name=os.getenv(
                 "RETIREMENT_BROKERAGE_CSV_NAME", "retirement_brokerage_income"
             ),
-            include_trades=_env_bool("INCLUDE_TRADES", True),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
         )
 
