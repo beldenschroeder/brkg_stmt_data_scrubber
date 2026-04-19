@@ -1,5 +1,7 @@
 """Configuration loaded from environment / .env file."""
 
+from __future__ import annotations
+
 import logging
 import os
 from dataclasses import dataclass
@@ -19,7 +21,7 @@ class Config:
     log_level: str
 
     @classmethod
-    def load(cls) -> "Config":
+    def load(cls) -> Config:
         """Load configuration from .env and environment variables."""
         load_dotenv()
 
