@@ -1,15 +1,15 @@
 """Unit tests for parser helpers, type-rule mapping, and dated-block parsing."""
 
 from brkg_stmt_data_scrubber.parser import (
+    _extract_symbol,
     _is_new_transaction_start,
+    _month_ending_for,
+    _normalize_statement_ending,
     _Page,
     _parse_dated_block,
-    extract_symbol,
-    month_ending_for,
-    normalize_statement_ending,
-    parse_jpm_date,
-    parse_money,
-    to_iso_date,
+    _parse_jpm_date,
+    _parse_money,
+    _to_iso_date,
 )
 
 # ---------------------------------------------------------------------------
@@ -19,28 +19,28 @@ from brkg_stmt_data_scrubber.parser import (
 
 class TestParseMoney:
     def test_plain_amount(self):
-        assert parse_money("123.45") == 123.45
+        assert _parse_money("123.45") == 123.45
 
     def test_dollar_sign(self):
-        assert parse_money("$123.45") == 123.45
+        assert _parse_money("$123.45") == 123.45
 
     def test_with_comma(self):
-        assert parse_money("$1,234.56") == 1234.56
+        assert _parse_money("$1,234.56") == 1234.56
 
     def test_parentheses_negative(self):
-        assert parse_money("(123.45)") == -123.45
+        assert _parse_money("(123.45)") == -123.45
 
     def test_parentheses_negative_with_dollar_and_comma(self):
-        assert parse_money("($10,062.00)") == -10062.00
+        assert _parse_money("($10,062.00)") == -10062.00
 
     def test_empty(self):
-        assert parse_money("") is None
+        assert _parse_money("") is None
 
     def test_whitespace_only(self):
-        assert parse_money("   ") is None
+        assert _parse_money("   ") is None
 
     def test_unparseable(self):
-        assert parse_money("abc") is None
+        assert _parse_money("abc") is None
 
 
 # ---------------------------------------------------------------------------
@@ -50,19 +50,19 @@ class TestParseMoney:
 
 class TestExtractSymbol:
     def test_basic(self):
-        assert extract_symbol("Apple Inc Symbol: AAPL") == "AAPL"
+        assert _extract_symbol("Apple Inc Symbol: AAPL") == "AAPL"
 
     def test_lowercase_keyword(self):
-        assert extract_symbol("apple inc symbol: aapl") == "AAPL"
+        assert _extract_symbol("apple inc symbol: aapl") == "AAPL"
 
     def test_with_dot(self):
-        assert extract_symbol("Berkshire Symbol: BRK.B") == "BRK.B"
+        assert _extract_symbol("Berkshire Symbol: BRK.B") == "BRK.B"
 
     def test_no_symbol(self):
-        assert extract_symbol("Just a description") is None
+        assert _extract_symbol("Just a description") is None
 
     def test_empty(self):
-        assert extract_symbol("") is None
+        assert _extract_symbol("") is None
 
 
 # ---------------------------------------------------------------------------
@@ -72,37 +72,37 @@ class TestExtractSymbol:
 
 class TestDateHelpers:
     def test_parse_jpm_date_typical(self):
-        dt = parse_jpm_date("02 Mar 2026")
+        dt = _parse_jpm_date("02 Mar 2026")
         assert dt is not None
         assert (dt.year, dt.month, dt.day) == (2026, 3, 2)
 
     def test_parse_jpm_date_invalid(self):
-        assert parse_jpm_date("not a date") is None
+        assert _parse_jpm_date("not a date") is None
 
     def test_to_iso_date(self):
-        assert to_iso_date("02 Mar 2026") == "2026-03-02"
-        assert to_iso_date("31 Mar 2026") == "2026-03-31"
+        assert _to_iso_date("02 Mar 2026") == "2026-03-02"
+        assert _to_iso_date("31 Mar 2026") == "2026-03-31"
 
     def test_to_iso_date_passthrough_on_failure(self):
-        assert to_iso_date("garbage") == "garbage"
+        assert _to_iso_date("garbage") == "garbage"
 
     def test_month_ending_for_march(self):
-        assert month_ending_for("02 Mar 2026") == "2026-03-31"
+        assert _month_ending_for("02 Mar 2026") == "2026-03-31"
 
     def test_month_ending_for_february_leap_year(self):
-        assert month_ending_for("15 Feb 2024") == "2024-02-29"
+        assert _month_ending_for("15 Feb 2024") == "2024-02-29"
 
     def test_month_ending_for_february_non_leap(self):
-        assert month_ending_for("15 Feb 2026") == "2026-02-28"
+        assert _month_ending_for("15 Feb 2026") == "2026-02-28"
 
     def test_month_ending_for_invalid(self):
-        assert month_ending_for("nonsense") == ""
+        assert _month_ending_for("nonsense") == ""
 
     def test_normalize_statement_ending(self):
-        assert normalize_statement_ending("March 31, 2026") == "2026-03-31"
+        assert _normalize_statement_ending("March 31, 2026") == "2026-03-31"
 
     def test_normalize_statement_ending_passthrough_on_failure(self):
-        assert normalize_statement_ending("garbage") == "garbage"
+        assert _normalize_statement_ending("garbage") == "garbage"
 
 
 # ---------------------------------------------------------------------------

@@ -128,78 +128,6 @@ class _Page:
 
 
 # ---------------------------------------------------------------------------
-# Parse helpers (also used by tests)
-# ---------------------------------------------------------------------------
-
-
-def parse_money(token: str) -> float | None:
-    """Parse a money token; ``()`` indicates negative. None if unparseable."""
-    if not token:
-        return None
-    raw = token.strip()
-    if not raw:
-        return None
-    is_negative = raw.startswith("(") and raw.endswith(")")
-    cleaned = raw.strip("()").replace("$", "").replace(",", "").strip()
-    if not cleaned:
-        return None
-    try:
-        value = float(cleaned)
-    except ValueError:
-        return None
-    return -value if is_negative else value
-
-
-def extract_symbol(text: str) -> str | None:
-    """Extract the ticker symbol from text containing 'Symbol: XXX'."""
-    if not text:
-        return None
-    match = SYMBOL_PATTERN.search(text)
-    if not match:
-        return None
-    return match.group(1).upper()
-
-
-def parse_jpm_date(text: str) -> datetime | None:
-    """Parse a 'DD MMM YYYY' date (e.g. '02 Mar 2026') into a datetime."""
-    try:
-        return datetime.strptime(text.strip(), "%d %b %Y")
-    except ValueError:
-        return None
-
-
-def to_iso_date(jpm_date: str) -> str:
-    """Convert a 'DD MMM YYYY' date string to ISO 'YYYY-MM-DD'.
-
-    Returns the original string if the input cannot be parsed (so we never
-    silently lose data).
-    """
-    dt = parse_jpm_date(jpm_date)
-    if dt is None:
-        return jpm_date
-    return dt.strftime("%Y-%m-%d")
-
-
-def month_ending_for(jpm_date: str) -> str:
-    """Given a 'DD MMM YYYY' string, return month-ending date 'YYYY-MM-DD'."""
-    dt = parse_jpm_date(jpm_date)
-    if dt is None:
-        return ""
-    last_day = calendar.monthrange(dt.year, dt.month)[1]
-    return f"{dt.year:04d}-{dt.month:02d}-{last_day:02d}"
-
-
-def normalize_statement_ending(raw: str) -> str:
-    """Convert 'March 31, 2026' to ISO 'YYYY-MM-DD'. Empty string on failure."""
-    if not raw:
-        return ""
-    try:
-        return datetime.strptime(raw.strip(), "%B %d, %Y").strftime("%Y-%m-%d")
-    except ValueError:
-        return raw.strip()
-
-
-# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -259,6 +187,78 @@ def parse_statement(
 
 
 # ---------------------------------------------------------------------------
+# Parse helpers
+# ---------------------------------------------------------------------------
+
+
+def _parse_money(token: str) -> float | None:
+    """Parse a money token; ``()`` indicates negative. None if unparseable."""
+    if not token:
+        return None
+    raw = token.strip()
+    if not raw:
+        return None
+    is_negative = raw.startswith("(") and raw.endswith(")")
+    cleaned = raw.strip("()").replace("$", "").replace(",", "").strip()
+    if not cleaned:
+        return None
+    try:
+        value = float(cleaned)
+    except ValueError:
+        return None
+    return -value if is_negative else value
+
+
+def _extract_symbol(text: str) -> str | None:
+    """Extract the ticker symbol from text containing 'Symbol: XXX'."""
+    if not text:
+        return None
+    match = SYMBOL_PATTERN.search(text)
+    if not match:
+        return None
+    return match.group(1).upper()
+
+
+def _parse_jpm_date(text: str) -> datetime | None:
+    """Parse a 'DD MMM YYYY' date (e.g. '02 Mar 2026') into a datetime."""
+    try:
+        return datetime.strptime(text.strip(), "%d %b %Y")
+    except ValueError:
+        return None
+
+
+def _to_iso_date(jpm_date: str) -> str:
+    """Convert a 'DD MMM YYYY' date string to ISO 'YYYY-MM-DD'.
+
+    Returns the original string if the input cannot be parsed (so we never
+    silently lose data).
+    """
+    dt = _parse_jpm_date(jpm_date)
+    if dt is None:
+        return jpm_date
+    return dt.strftime("%Y-%m-%d")
+
+
+def _month_ending_for(jpm_date: str) -> str:
+    """Given a 'DD MMM YYYY' string, return month-ending date 'YYYY-MM-DD'."""
+    dt = _parse_jpm_date(jpm_date)
+    if dt is None:
+        return ""
+    last_day = calendar.monthrange(dt.year, dt.month)[1]
+    return f"{dt.year:04d}-{dt.month:02d}-{last_day:02d}"
+
+
+def _normalize_statement_ending(raw: str) -> str:
+    """Convert 'March 31, 2026' to ISO 'YYYY-MM-DD'. Empty string on failure."""
+    if not raw:
+        return ""
+    try:
+        return datetime.strptime(raw.strip(), "%B %d, %Y").strftime("%Y-%m-%d")
+    except ValueError:
+        return raw.strip()
+
+
+# ---------------------------------------------------------------------------
 # Page extraction & account detection
 # ---------------------------------------------------------------------------
 
@@ -278,7 +278,7 @@ def _extract_pages(pdf_path: Path) -> list[_Page]:
             for line in raw_lines:
                 m = STATEMENT_END_PATTERN.search(line)
                 if m:
-                    page_se = normalize_statement_ending(m.group(1))
+                    page_se = _normalize_statement_ending(m.group(1))
                     break
             if page_se:
                 statement_end_iso = page_se
@@ -529,13 +529,13 @@ def _build_transaction(
     money_tokens_first = list(MONEY_PATTERN.finditer(first))
     primary_amount: float | None = None
     if money_tokens_first:
-        primary_amount = parse_money(money_tokens_first[-1].group(0))
+        primary_amount = _parse_money(money_tokens_first[-1].group(0))
 
     # Statement Ending always populated from the page; Month Ending always
     # derived from the transaction's own date.
     statement_ending = (raw_pages[0].statement_ending if raw_pages else "") or ""
-    month_ending = month_ending_for(raw_date_str)
-    iso_date = to_iso_date(raw_date_str)
+    month_ending = _month_ending_for(raw_date_str)
+    iso_date = _to_iso_date(raw_date_str)
 
     txn = Transaction(
         date=iso_date,
@@ -558,14 +558,14 @@ def _apply_type_rules(
     type_normalized = txn_type.upper().strip()
 
     if type_normalized == "DIVIDEND":
-        symbol = extract_symbol(full_text) or ""
+        symbol = _extract_symbol(full_text) or ""
         txn.account = "Dividends"
         txn.description = symbol
         txn.credit = amount
         return
 
     if type_normalized == "BUY":
-        symbol = extract_symbol(full_text) or ""
+        symbol = _extract_symbol(full_text) or ""
         txn.account = "N/A"
         txn.description = f"{symbol} (buy)" if symbol else "(buy)"
         # Trade "Cost" appears in parens (outflow). Per spec, map to Debit
@@ -574,7 +574,7 @@ def _apply_type_rules(
         return
 
     if type_normalized == "SELL":
-        symbol = extract_symbol(full_text) or ""
+        symbol = _extract_symbol(full_text) or ""
         txn.account = "N/A"
         txn.description = f"{symbol} (sell)" if symbol else "(sell)"
         # Per spec: SELL maps Cost-style to Debit identically to BUY.
