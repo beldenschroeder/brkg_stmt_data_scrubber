@@ -141,11 +141,9 @@ def parse_statement(
     RETIREMENT BROKERAGE). Either may have an empty transactions list if
     nothing was parsed for that account.
 
-    Statement Ending and Month Ending are always populated:
-      - Statement Ending comes from the "Statement Period Ending" text on
-        the page (or the most recent prior page that had one).
-      - Month Ending is derived from the transaction's own date and is
-        the last calendar day of that month.
+    Statement Ending is always populated from the "Statement Period Ending"
+    text on the page (or the most recent prior page that had one).
+    Month Ending is intentionally left blank for the user to fill in manually.
     """
     logger.info("Opening PDF: %s", pdf_path)
     pages = _extract_pages(pdf_path)

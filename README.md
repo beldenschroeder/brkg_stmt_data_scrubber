@@ -30,7 +30,7 @@ Investments` table and (optionally) the `TRADE AND INVESTMENT ACTIVITY` table.
     PDF `Description` → CSV `Description`.
 - Accounting-style negatives `(123.45)` are converted to floating negatives `-123.45`.
 - `Statement Ending` is auto-populated from the page's `Statement Period Ending`.
-- `Month Ending` is auto-populated as the last calendar day of the transaction's month.
+- `Month Ending` is intentionally left blank — fill it in manually after export.
 
 ---
 

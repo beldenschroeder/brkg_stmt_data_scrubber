@@ -40,7 +40,7 @@ class Transaction:
     description: str = ""
     account: str = ""
     statement_ending: str = ""  # ISO 8601: "YYYY-MM-DD"
-    month_ending: str = ""  # ISO 8601: "YYYY-MM-DD"
+    month_ending: str = ""  # intentionally blank; filled in manually by the user
     debit: float | None = None
     credit: float | None = None
 
