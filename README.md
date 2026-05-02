@@ -1,4 +1,4 @@
-# brkg_stmt_data_scrubber
+# brkg-stmt-data-scrubber
 
 Scrubs JPMorgan Self-Directed Investing brokerage statement PDFs and exports
 income & trade transactions from the **BROKERAGE** and **RETIREMENT BROKERAGE**
@@ -47,8 +47,8 @@ Investments` table and (optionally) the `TRADE AND INVESTMENT ACTIVITY` table.
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/beldenschroeder/brkg_stmt_data_scrubber.git
-cd brkg_stmt_data_scrubber
+git clone https://github.com/beldenschroeder/brkg-stmt-data-scrubber.git
+cd brkg-stmt-data-scrubber
 ```
 
 ### 2. Create your local `.env`
@@ -196,7 +196,7 @@ uv run pre-commit run --all-files
 ## Project layout
 
 ```text
-brkg_stmt_data_scrubber/
+brkg-stmt-data-scrubber/
 ├── .env.example
 ├── .gitignore
 ├── .pre-commit-config.yaml

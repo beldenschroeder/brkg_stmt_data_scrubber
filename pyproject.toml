@@ -1,5 +1,5 @@
 [project]
-name = "brkg_stmt_data_scrubber"
+name = "brkg-stmt-data-scrubber"
 version = "0.1.0"
 description = "Scrubs JPMorgan brokerage statement PDFs and exports income & trade transactions to CSV."
 readme = "README.md"
@@ -23,9 +23,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/beldenschroeder/brkg_stmt_data_scrubber"
-Repository = "https://github.com/beldenschroeder/brkg_stmt_data_scrubber"
-Issues = "https://github.com/beldenschroeder/brkg_stmt_data_scrubber/issues"
+Homepage = "https://github.com/beldenschroeder/brkg-stmt-data-scrubber"
+Repository = "https://github.com/beldenschroeder/brkg-stmt-data-scrubber"
+Issues = "https://github.com/beldenschroeder/brkg-stmt-data-scrubber/issues"
 
 [project.scripts]
 brkg-scrubber = "brkg_stmt_data_scrubber.cli:main"
