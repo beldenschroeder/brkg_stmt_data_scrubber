@@ -531,16 +531,12 @@ def _build_transaction(
     if money_tokens_first:
         primary_amount = _parse_money(money_tokens_first[-1].group(0))
 
-    # Statement Ending always populated from the page; Month Ending always
-    # derived from the transaction's own date.
     statement_ending = (raw_pages[0].statement_ending if raw_pages else "") or ""
-    month_ending = _month_ending_for(raw_date_str)
     iso_date = _to_iso_date(raw_date_str)
 
     txn = Transaction(
         date=iso_date,
         statement_ending=statement_ending,
-        month_ending=month_ending,
     )
     _apply_type_rules(txn, txn_type, full_text, primary_amount, kind=kind)
     return txn

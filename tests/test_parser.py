@@ -174,7 +174,7 @@ class TestParseDatedBlockIncome:
         assert txns[0].credit == 100.00
         assert txns[0].debit is None
         assert txns[0].statement_ending == "2026-03-31"
-        assert txns[0].month_ending == "2026-03-31"
+        assert txns[0].month_ending == ""
 
     def test_dividend_with_continuation_lines(self):
         # Mirrors the real PDF: amount on first line, symbol on a later continuation line.
