@@ -83,6 +83,9 @@ INCOME_TABLE_HEADER = re.compile(
     re.IGNORECASE,
 )
 TRADE_SECTION_HEADER = re.compile(r"^\s*TRADE\s+AND\s+INVESTMENT\s+ACTIVITY\b", re.IGNORECASE)
+DEPOSITS_SECTION_HEADER = re.compile(r"^\s*DEPOSITS\s+AND\s+WITHDRAWALS\b", re.IGNORECASE)
+# No IGNORECASE: section headers are all-caps; avoids matching "fees" in footnote prose.
+FEES_SECTION_HEADER = re.compile(r"^\s*FEES\b")
 
 # Markers that end an income table block
 INCOME_END_MARKERS = [
@@ -97,6 +100,23 @@ INCOME_END_MARKERS = [
 TRADE_END_MARKERS = [
     re.compile(r"^\s*Total\s+Securities\s+Bought\b", re.IGNORECASE),
     re.compile(r"^\s*TOTAL\s+TRADE\s+AND\s+INVESTMENT\b", re.IGNORECASE),
+    re.compile(r"^\s*INCOME\b\s*$", re.IGNORECASE),
+    re.compile(r"^\s*DEPOSITS\s+AND\s+WITHDRAWALS\b", re.IGNORECASE),
+    re.compile(r"^\s*FEES\b"),
+]
+
+# Markers that end a DEPOSITS AND WITHDRAWALS block
+DEPOSITS_END_MARKERS = [
+    re.compile(r"^\s*Total\s+Deposits\s+and\s+Withdrawals\b", re.IGNORECASE),
+    re.compile(r"^\s*FEES\b"),
+    re.compile(r"^\s*SWEEP\s+PROGRAM\s+ACTIVITY\b", re.IGNORECASE),
+    re.compile(r"^\s*INCOME\b\s*$", re.IGNORECASE),
+]
+
+# Markers that end a FEES block
+FEES_END_MARKERS = [
+    re.compile(r"^\s*Total\s+Fees\b", re.IGNORECASE),
+    re.compile(r"^\s*SWEEP\s+PROGRAM\s+ACTIVITY\b", re.IGNORECASE),
     re.compile(r"^\s*INCOME\b\s*$", re.IGNORECASE),
     re.compile(r"^\s*DEPOSITS\s+AND\s+WITHDRAWALS\b", re.IGNORECASE),
 ]
@@ -166,8 +186,10 @@ def parse_statement(
 
         income_txns = _parse_income_blocks(flat_lines, page_for_line)
         trade_txns = _parse_trade_blocks(flat_lines, page_for_line)
+        deposit_txns = _parse_deposit_blocks(flat_lines, page_for_line)
+        fee_txns = _parse_fee_blocks(flat_lines, page_for_line)
 
-        all_txns = income_txns + trade_txns
+        all_txns = income_txns + trade_txns + deposit_txns + fee_txns
         all_txns.sort(key=lambda t: t.date)  # ISO dates sort lexically = chronologically
 
         if account == BROKERAGE_ACCOUNT:
@@ -400,6 +422,224 @@ def _parse_trade_blocks(lines: list[str], page_for_line: list[_Page]) -> list[Tr
 
 
 # ---------------------------------------------------------------------------
+# DEPOSITS AND WITHDRAWALS parsing
+# ---------------------------------------------------------------------------
+
+
+def _parse_deposit_blocks(lines: list[str], page_for_line: list[_Page]) -> list[Transaction]:
+    """Find every "DEPOSITS AND WITHDRAWALS" section and parse its rows."""
+    transactions: list[Transaction] = []
+    i = 0
+    n = len(lines)
+    while i < n:
+        if DEPOSITS_SECTION_HEADER.match(lines[i]):
+            block_start = i + 1
+            block_end = _find_block_end(lines, block_start, DEPOSITS_END_MARKERS)
+            txns = _parse_deposit_rows(
+                lines[block_start:block_end],
+                page_for_line[block_start:block_end],
+            )
+            transactions.extend(txns)
+            i = block_end
+        else:
+            i += 1
+    return transactions
+
+
+def _parse_deposit_rows(block_lines: list[str], block_pages: list[_Page]) -> list[Transaction]:
+    """Walk a deposit/withdrawal block and emit one Transaction per date group."""
+    transactions: list[Transaction] = []
+    current_lines: list[str] = []
+    current_pages: list[_Page] = []
+
+    def flush() -> None:
+        if not current_lines:
+            return
+        txn = _build_deposit_transaction(current_lines, current_pages)
+        if txn is not None:
+            transactions.append(txn)
+
+    for line, page in zip(block_lines, block_pages, strict=False):
+        if _is_new_transaction_start(line, "deposit", current_lines):
+            flush()
+            current_lines = [line]
+            current_pages = [page]
+        else:
+            if current_lines:
+                current_lines.append(line)
+                current_pages.append(page)
+    flush()
+    return transactions
+
+
+def _build_deposit_transaction(raw_lines: list[str], raw_pages: list[_Page]) -> Transaction | None:
+    """Build a Transaction from one deposit/withdrawal row group."""
+    if not raw_lines:
+        return None
+    first = raw_lines[0]
+    date_match = DATE_PATTERN.match(first)
+    if not date_match:
+        return None
+    raw_date_str = date_match.group(1)
+    rest_first = first[date_match.end() :].strip()
+
+    # Strip the optional "Date Cleared" column that may follow the trade date.
+    inner_date = DATE_PATTERN.match(rest_first)
+    if inner_date:
+        rest_first = rest_first[inner_date.end() :].strip()
+
+    full_text = " ".join([rest_first, *raw_lines[1:]]).strip()
+
+    # Everything before the first money token on line 1 = transaction type → Account.
+    first_money = MONEY_PATTERN.search(rest_first)
+    pre_amount = rest_first[: first_money.start()].strip() if first_money else rest_first
+
+    account = pre_amount.title() if pre_amount else ""
+
+    # Description: text from continuation lines; strip money noise from first.
+    desc_parts = raw_lines[1:]
+    description = " ".join(desc_parts).strip()
+
+    # Determine credit vs debit.
+    money_tokens = list(MONEY_PATTERN.finditer(first))
+    credit: float | None = None
+    debit: float | None = None
+
+    if len(money_tokens) >= 2:
+        # Two columns present: Withdrawal Value, Deposit Value (column order).
+        debit_val = _parse_money(money_tokens[0].group(0))
+        credit_val = _parse_money(money_tokens[1].group(0))
+        if debit_val is not None:
+            debit = abs(debit_val)
+        if credit_val is not None:
+            credit = abs(credit_val)
+    elif len(money_tokens) == 1:
+        amount = _parse_money(money_tokens[0].group(0))
+        upper = full_text.upper()
+        has_credit_kw = "CREDIT" in upper
+        has_debit_kw = "DEBIT" in upper
+        if has_credit_kw and not has_debit_kw:
+            credit = abs(amount) if amount is not None else None
+        elif has_debit_kw and not has_credit_kw:
+            debit = abs(amount) if amount is not None else None
+        elif amount is not None:
+            if amount >= 0:
+                credit = amount
+            else:
+                debit = abs(amount)
+
+    statement_ending = (raw_pages[0].statement_ending if raw_pages else "") or ""
+
+    return Transaction(
+        date=_to_iso_date(raw_date_str),
+        description=description,
+        account=account,
+        statement_ending=statement_ending,
+        debit=debit,
+        credit=credit,
+    )
+
+
+# ---------------------------------------------------------------------------
+# FEES parsing
+# ---------------------------------------------------------------------------
+
+
+def _parse_fee_blocks(lines: list[str], page_for_line: list[_Page]) -> list[Transaction]:
+    """Find every "FEES" section and parse its rows."""
+    transactions: list[Transaction] = []
+    i = 0
+    n = len(lines)
+    while i < n:
+        if FEES_SECTION_HEADER.match(lines[i]):
+            block_start = i + 1
+            block_end = _find_block_end(lines, block_start, FEES_END_MARKERS)
+            txns = _parse_fee_rows(
+                lines[block_start:block_end],
+                page_for_line[block_start:block_end],
+            )
+            transactions.extend(txns)
+            i = block_end
+        else:
+            i += 1
+    return transactions
+
+
+def _parse_fee_rows(block_lines: list[str], block_pages: list[_Page]) -> list[Transaction]:
+    """Walk a fee block; any date-starting line begins a new fee transaction."""
+    transactions: list[Transaction] = []
+    current_lines: list[str] = []
+    current_pages: list[_Page] = []
+
+    def flush() -> None:
+        if not current_lines:
+            return
+        txn = _build_fee_transaction(current_lines, current_pages)
+        if txn is not None:
+            transactions.append(txn)
+
+    for line, page in zip(block_lines, block_pages, strict=False):
+        if DATE_PATTERN.match(line):
+            flush()
+            current_lines = [line]
+            current_pages = [page]
+        else:
+            if current_lines:
+                current_lines.append(line)
+                current_pages.append(page)
+    flush()
+    return transactions
+
+
+def _build_fee_transaction(raw_lines: list[str], raw_pages: list[_Page]) -> Transaction | None:
+    """Build a Transaction from one fee row group."""
+    if not raw_lines:
+        return None
+    first = raw_lines[0]
+    date_match = DATE_PATTERN.match(first)
+    if not date_match:
+        return None
+    raw_date_str = date_match.group(1)
+
+    full_text = " ".join([first[date_match.end() :].strip(), *raw_lines[1:]]).strip()
+
+    # PDF columns: Debit Amount | Credit Amount — extract money tokens from line 1.
+    money_tokens = list(MONEY_PATTERN.finditer(first))
+    debit: float | None = None
+    credit: float | None = None
+
+    if len(money_tokens) >= 2:
+        debit_val = _parse_money(money_tokens[0].group(0))
+        credit_val = _parse_money(money_tokens[1].group(0))
+        if debit_val is not None:
+            debit = abs(debit_val)
+        if credit_val is not None:
+            credit = abs(credit_val)
+    elif len(money_tokens) == 1:
+        amount = _parse_money(money_tokens[0].group(0))
+        if amount is not None:
+            if amount < 0:
+                debit = abs(amount)
+            else:
+                credit = amount
+
+    # Description: prefer the symbol ticker; fall back to stripped text.
+    symbol = _extract_symbol(full_text)
+    description = symbol if symbol else _strip_money_tokens(full_text).strip()
+
+    statement_ending = (raw_pages[0].statement_ending if raw_pages else "") or ""
+
+    return Transaction(
+        date=_to_iso_date(raw_date_str),
+        description=description,
+        account="Fees",
+        statement_ending=statement_ending,
+        debit=debit,
+        credit=credit,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Generic dated-block parser
 # ---------------------------------------------------------------------------
 
@@ -439,6 +679,17 @@ def _is_new_transaction_start(line: str, kind: str, prev_lines: list[str]) -> bo
     if not remainder:
         # Bare date — always a continuation
         return False
+
+    # Deposit rows have an optional "Date Cleared" column right after the trade
+    # date. Strip it before checking for the type keyword.
+    if kind == "deposit":
+        inner = DATE_PATTERN.match(remainder)
+        if inner:
+            remainder = remainder[inner.end() :].strip()
+            if not remainder:
+                return False
+        return bool(re.match(r"^[A-Z][A-Z &/\-]{1,}\b", remainder))
+
     has_type_token = bool(re.match(r"^[A-Z][A-Z &/\-]{1,}\b", remainder))
     if not has_type_token:
         return False

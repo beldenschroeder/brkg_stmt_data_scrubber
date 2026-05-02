@@ -20,12 +20,17 @@ The CSVs are formatted for native import into Excel:
 - Locates the BROKERAGE (TFR ON DEATH IND) and RETIREMENT BROKERAGE (JPMS LLC IRA)
   account sections automatically by per-page header markers.
 - Extracts transactions from each account's `INCOME` → `Income from Taxable
-Investments` table and (optionally) the `TRADE AND INVESTMENT ACTIVITY` table.
+Investments` table, the `TRADE AND INVESTMENT ACTIVITY` table, the `DEPOSITS AND
+WITHDRAWALS` section, and the `FEES` section.
 - Applies the following mapping rules:
   - `DIVIDEND` → CSV `Account` = `Dividends`, `Description` = ticker (from
     `Symbol: XXX`), credit amount → `Credit`.
   - `BUY` → CSV `Account` = `N/A`, `Description` = `<TICKER> (buy)`, cost → `Debit`.
   - `SELL` → CSV `Account` = `N/A`, `Description` = `<TICKER> (sell)`, cost → `Debit`.
+  - Deposits/withdrawals: PDF `Transaction` → CSV `Account`; `Deposit Value` →
+    `Credit`, `Withdrawal Value` → `Debit`.
+  - Fees: CSV `Account` = `Fees`; `Symbol: XXX` → `Description`; `Debit Amount` →
+    `Debit`, `Credit Amount` → `Credit`.
   - All other transaction types: PDF `Transaction` → CSV `Account`,
     PDF `Description` → CSV `Description`.
 - Accounting-style negatives `(123.45)` are converted to floating negatives `-123.45`.

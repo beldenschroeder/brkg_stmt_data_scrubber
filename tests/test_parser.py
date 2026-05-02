@@ -7,6 +7,8 @@ from brkg_stmt_data_scrubber.parser import (
     _normalize_statement_ending,
     _Page,
     _parse_dated_block,
+    _parse_deposit_rows,
+    _parse_fee_rows,
     _parse_jpm_date,
     _parse_money,
     _to_iso_date,
@@ -259,6 +261,117 @@ class TestParseDatedBlockTrade:
             "MSFT (buy)",
             900.00,
         )
+
+
+# ---------------------------------------------------------------------------
+# DEPOSITS AND WITHDRAWALS parsing
+# ---------------------------------------------------------------------------
+
+
+class TestParseDepositRows:
+    def test_ach_credit_single_amount(self):
+        lines = [
+            "20 Apr 2026 ACH CREDIT BANKLINK 8,590.00",
+            "ACH PULL 73649167",
+        ]
+        txns = _parse_deposit_rows(lines, _pages_for(lines))
+        assert len(txns) == 1
+        assert txns[0].date == "2026-04-20"
+        assert txns[0].account == "Ach Credit Banklink"
+        assert txns[0].credit == 8590.00
+        assert txns[0].debit is None
+
+    def test_ach_debit_goes_to_debit_column(self):
+        lines = ["15 Apr 2026 ACH DEBIT SOME VENDOR 250.00"]
+        txns = _parse_deposit_rows(lines, _pages_for(lines))
+        assert len(txns) == 1
+        assert txns[0].debit == 250.00
+        assert txns[0].credit is None
+
+    def test_date_cleared_column_stripped(self):
+        # pdfplumber may emit: "TradeDate ClearedDate TXN_TYPE AMOUNT"
+        lines = ["20 Apr 2026 22 Apr 2026 ACH CREDIT BANKLINK 8,590.00"]
+        txns = _parse_deposit_rows(lines, _pages_for(lines))
+        assert len(txns) == 1
+        assert txns[0].date == "2026-04-20"
+        assert txns[0].credit == 8590.00
+
+    def test_two_money_tokens_withdrawal_then_deposit(self):
+        # If both Withdrawal Value and Deposit Value columns are non-empty.
+        lines = ["05 Apr 2026 SOME TX 100.00 200.00"]
+        txns = _parse_deposit_rows(lines, _pages_for(lines))
+        assert len(txns) == 1
+        assert txns[0].debit == 100.00
+        assert txns[0].credit == 200.00
+
+    def test_multiple_deposits(self):
+        lines = [
+            "01 Apr 2026 ACH CREDIT FIRST BANK 1,000.00",
+            "15 Apr 2026 ACH CREDIT SECOND BANK 2,000.00",
+        ]
+        txns = _parse_deposit_rows(lines, _pages_for(lines))
+        assert len(txns) == 2
+        assert txns[0].credit == 1000.00
+        assert txns[1].credit == 2000.00
+
+    def test_empty_block(self):
+        assert _parse_deposit_rows([], []) == []
+
+
+# ---------------------------------------------------------------------------
+# FEES parsing
+# ---------------------------------------------------------------------------
+
+
+class TestParseFeeRows:
+    def test_single_negative_amount_goes_to_debit(self):
+        lines = [
+            "09 Apr 2026 (0.69)",
+            "GSK PLC AMERICAN DEPOSITARY SHARES EACH",
+            "Symbol: GSK",
+        ]
+        txns = _parse_fee_rows(lines, _pages_for(lines))
+        assert len(txns) == 1
+        assert txns[0].date == "2026-04-09"
+        assert txns[0].account == "Fees"
+        assert txns[0].description == "GSK"
+        assert txns[0].debit == 0.69
+        assert txns[0].credit is None
+
+    def test_single_positive_amount_goes_to_credit(self):
+        lines = ["15 Apr 2026 1.50", "Symbol: AAPL"]
+        txns = _parse_fee_rows(lines, _pages_for(lines))
+        assert len(txns) == 1
+        assert txns[0].credit == 1.50
+        assert txns[0].debit is None
+
+    def test_two_tokens_debit_then_credit(self):
+        lines = ["20 Apr 2026 (2.00) 1.00"]
+        txns = _parse_fee_rows(lines, _pages_for(lines))
+        assert len(txns) == 1
+        assert txns[0].debit == 2.00
+        assert txns[0].credit == 1.00
+
+    def test_no_symbol_uses_text_description(self):
+        lines = ["10 Apr 2026 (5.00)", "SOME FEE DESCRIPTION"]
+        txns = _parse_fee_rows(lines, _pages_for(lines))
+        assert len(txns) == 1
+        assert txns[0].description == "SOME FEE DESCRIPTION"
+
+    def test_multiple_fees(self):
+        lines = [
+            "01 Apr 2026 (0.50)",
+            "Symbol: MSFT",
+            "05 Apr 2026 (1.25)",
+            "Symbol: GOOGL",
+        ]
+        txns = _parse_fee_rows(lines, _pages_for(lines))
+        assert len(txns) == 2
+        assert (txns[0].description, txns[0].debit) == ("MSFT", 0.50)
+        assert (txns[1].description, txns[1].debit) == ("GOOGL", 1.25)
+
+    def test_empty_block(self):
+        assert _parse_fee_rows([], []) == []
 
 
 # ---------------------------------------------------------------------------
